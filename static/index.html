@@ -3,114 +3,352 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiSyncHub</title>
+    <title>PiSyncHub - Multi-Node Pi-hole Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
 </head>
-<body class="bg-slate-900 text-white min-h-screen p-4 md:p-8">
-    <div class="max-w-5xl mx-auto">
-        <!-- Header & Global Controls -->
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <h1 class="text-3xl font-bold text-emerald-400">PiSyncHub</h1>
-            <div class="flex gap-2">
-                <button onclick="toggleBlocking('disable', 300)" class="bg-red-500/20 text-red-400 border border-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded transition">Pause All (5m)</button>
-                <button onclick="toggleBlocking('enable', 0)" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded transition">Enable All</button>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-8">
+        
+        <!-- Header & Global Blocking Controls -->
+        <header class="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 backdrop-blur">
+            <div>
+                <h1 class="text-3xl font-extrabold text-emerald-400 tracking-tight flex items-center gap-2">
+                    🛡️ PiSyncHub
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">Unified Multi-Node Pi-hole v6 Dashboard & Teleporter Sync</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="toggleBlocking(false, 300)" class="bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-lg shadow-amber-500/5">Pause All (5m)</button>
+                <button onclick="toggleBlocking(false, 1800)" class="bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-lg shadow-orange-500/5">Pause All (30m)</button>
+                <button onclick="toggleBlocking(true, 0)" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-lg shadow-emerald-500/5">Enable All</button>
             </div>
         </header>
 
-        <!-- Dynamic Node Grid -->
-        <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <p class="text-slate-400">Loading nodes...</p>
+        <!-- Network-Wide Aggregated Totals Banner -->
+        <div id="totalsBanner" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
+                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Queries</p>
+                <p id="totQueries" class="text-3xl font-mono font-bold mt-2 text-slate-100">0</p>
+            </div>
+            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
+                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Blocked Ads</p>
+                <p id="totBlocked" class="text-3xl font-mono font-bold mt-2 text-emerald-400">0</p>
+            </div>
+            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
+                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Block Percentage</p>
+                <p id="totPercent" class="text-3xl font-mono font-bold mt-2 text-sky-400">0.0%</p>
+            </div>
+            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
+                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Active Nodes</p>
+                <p id="totNodes" class="text-3xl font-mono font-bold mt-2 text-indigo-400">0 / 0</p>
+            </div>
         </div>
-        
+
+        <!-- Node Status Cards Grid -->
+        <div id="nodeGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700/60 text-slate-400 text-center py-12">Loading Pi-hole nodes...</div>
+        </div>
+
+        <!-- Split Panel: Selective Teleport Sync -->
+        <div class="bg-slate-800 p-6 md:p-8 rounded-2xl border border-slate-700/60 space-y-6">
+            <div>
+                <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">🔄 Teleporter Sync Engine</h2>
+                <p class="text-sm text-slate-400 mt-1">Export configuration from a source Pi-hole and selectively push it to target instances.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Source Pi-hole (Export From)</label>
+                    <select id="syncSource" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-slate-100 outline-none focus:border-emerald-500 font-medium">
+                        <option value="">-- Load nodes first --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Target Pi-hole(s) (Import Into - Hold Ctrl/Cmd for multi)</label>
+                    <select id="syncTargets" multiple class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-slate-100 outline-none focus:border-emerald-500 h-28 font-medium">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Granular Checkboxes -->
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Select What to Sync</label>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optAdlists" checked class="w-4 h-4 accent-emerald-500 rounded"> Adlists & Blocklists</label>
+                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optDomains" checked class="w-4 h-4 accent-emerald-500 rounded"> Domains & Regex</label>
+                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optGroups" checked class="w-4 h-4 accent-emerald-500 rounded"> Groups & Clients</label>
+                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optLocalDns" checked class="w-4 h-4 accent-emerald-500 rounded"> Local DNS Records</label>
+                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optUpstream" checked class="w-4 h-4 accent-emerald-500 rounded"> Upstream DNS Settings</label>
+                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optSysDhcp" class="w-4 h-4 accent-emerald-500 rounded"> System & DHCP (Risky)</label>
+                    <label class="flex items-center gap-3 text-sm cursor-pointer col-span-2"><input type="checkbox" id="optGravity" checked class="w-4 h-4 accent-emerald-500 rounded"> Auto-run Gravity Update after sync</label>
+                </div>
+            </div>
+
+            <button onclick="executeTeleportSync()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-emerald-600/20">
+                🚀 Run Selective Teleport Sync Now
+            </button>
+            <div id="syncStatus" class="text-sm text-center text-slate-400"></div>
+        </div>
+
+        <!-- Split Panel: Backup Vault & Management -->
+        <div class="bg-slate-800 p-6 md:p-8 rounded-2xl border border-slate-700/60 space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">📦 Standalone Backup Vault</h2>
+                    <p class="text-sm text-slate-400 mt-1">Snapshot archives stored locally in unRAID appdata. Auto-prunes older than 10 per node.</p>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="createBackup('all')" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition">Backup All Nodes</button>
+                    <button onclick="loadBackups()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition">🔄 Refresh Vault</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-xs font-semibold uppercase text-slate-400">
+                            <th class="py-3 px-4">Backup Archive Filename</th>
+                            <th class="py-3 px-4">Size</th>
+                            <th class="py-3 px-4">Timestamp</th>
+                            <th class="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="backupTable" class="divide-y divide-slate-700/50 text-sm font-mono">
+                        <tr><td colspan="4" class="py-4 px-4 text-center text-slate-500">Loading backup vault...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Node Manager Configuration -->
-        <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
-            <h2 class="text-xl font-semibold mb-4 text-slate-200">Add Pi-hole Node</h2>
-            <form id="addNodeForm" class="flex flex-col md:flex-row gap-4" onsubmit="addNode(event)">
-                <input type="text" id="nodeId" placeholder="ID (e.g. pihole1)" class="bg-slate-900 border border-slate-700 p-2 rounded flex-1 outline-none focus:border-emerald-500" required>
-                <input type="text" id="nodeName" placeholder="Display Name (Server 1)" class="bg-slate-900 border border-slate-700 p-2 rounded flex-1 outline-none focus:border-emerald-500" required>
-                <input type="url" id="nodeUrl" placeholder="URL (http://192.168.X.X)" class="bg-slate-900 border border-slate-700 p-2 rounded flex-1 outline-none focus:border-emerald-500" required>
-                <input type="password" id="nodePwd" placeholder="App Password" class="bg-slate-900 border border-slate-700 p-2 rounded flex-1 outline-none focus:border-emerald-500" required>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded font-medium transition">Save</button>
+        <div class="bg-slate-800 p-6 md:p-8 rounded-2xl border border-slate-700/60 space-y-6">
+            <h2 class="text-xl font-bold text-slate-100">⚙️ Node Manager</h2>
+            <form id="addNodeForm" class="grid grid-cols-1 md:grid-cols-5 gap-4" onsubmit="addNode(event)">
+                <input type="text" id="nodeId" placeholder="ID (e.g. server1)" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
+                <input type="text" id="nodeName" placeholder="Name (Server 1 Pi-hole)" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
+                <input type="url" id="nodeUrl" placeholder="URL (http://192.168.1.50)" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
+                <input type="password" id="nodePwd" placeholder="App Password" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-indigo-600/20">Add Node</button>
             </form>
         </div>
+
     </div>
 
     <script>
-        async function fetchDashboard() {
-            const res = await fetch('/api/dashboard');
-            const data = await res.json();
-            const dash = document.getElementById('dashboard');
-            
-            if (data.length === 0) {
-                dash.innerHTML = '<p class="text-slate-400">No nodes added yet. Add your first Pi-hole below.</p>';
-                return;
-            }
+        let cachedNodes = [];
 
-            dash.innerHTML = data.map(node => `
-                <div class="bg-slate-800 p-6 rounded-lg border-l-4 ${node.status === 'online' ? 'border-emerald-500' : 'border-red-500'} shadow-lg">
-                    <div class="flex justify-between items-start mb-4">
-                        <h3 class="text-xl font-bold">${node.name}</h3>
-                        <span class="text-xs font-bold uppercase px-2 py-1 rounded tracking-wider ${node.status === 'online' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">${node.status}</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div class="bg-slate-900 p-3 rounded border border-slate-700">
-                            <p class="text-slate-400 text-sm mb-1">Total Queries</p>
-                            <p class="text-2xl font-mono">${(node.queries || 0).toLocaleString()}</p>
+        async function fetchDashboard() {
+            try {
+                const res = await fetch('/api/dashboard');
+                const data = await res.json();
+                
+                // Update Totals
+                document.getElementById('totQueries').innerText = (data.totals.queries || 0).toLocaleString();
+                document.getElementById('totBlocked').innerText = (data.totals.blocked || 0).toLocaleString();
+                document.getElementById('totPercent').innerText = (data.totals.percent_blocked || 0).toFixed(1) + '%';
+                document.getElementById('totNodes').innerText = `${data.totals.online_nodes} / ${data.totals.total_nodes}`;
+
+                cachedNodes = data.nodes;
+                const grid = document.getElementById('nodeGrid');
+                
+                if (data.nodes.length === 0) {
+                    grid.innerHTML = '<div class="col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700/60 text-slate-400 text-center py-12">No Pi-hole nodes added yet. Add one below.</div>';
+                    return;
+                }
+
+                grid.innerHTML = data.nodes.map(n => `
+                    <div class="bg-slate-800 p-6 rounded-2xl border-l-4 ${n.status === 'online' ? 'border-emerald-500' : 'border-red-500'} border-y border-r border-slate-700/60 shadow-xl flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 class="text-xl font-bold text-slate-100">${n.name}</h3>
+                                    <a href="${n.url}" target="_blank" class="text-xs text-slate-400 hover:text-emerald-400 transition">${n.url} ↗</a>
+                                </div>
+                                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-lg tracking-wider ${n.status === 'online' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">${n.status}</span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 mb-6">
+                                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700/50">
+                                    <p class="text-slate-400 text-xs font-medium">Queries</p>
+                                    <p class="text-2xl font-mono font-bold mt-1 text-slate-100">${(n.queries || 0).toLocaleString()}</p>
+                                </div>
+                                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700/50">
+                                    <p class="text-slate-400 text-xs font-medium">Blocked (${(n.percent || 0).toFixed(1)}%)</p>
+                                    <p class="text-2xl font-mono font-bold mt-1 text-emerald-400">${(n.blocked || 0).toLocaleString()}</p>
+                                </div>
+                            </div>
                         </div>
-                        <div class="bg-slate-900 p-3 rounded border border-slate-700">
-                            <p class="text-slate-400 text-sm mb-1">Blocked</p>
-                            <p class="text-2xl font-mono text-emerald-400">${(node.blocked || 0).toLocaleString()}</p>
-                            <p class="text-xs text-slate-500 mt-1">${(node.percent || 0).toFixed(1)}%</p>
+
+                        <div class="flex justify-between items-center border-t border-slate-700/60 pt-4 mt-2">
+                            <button onclick="createBackup('${n.id}')" class="text-sky-400 hover:text-sky-300 text-sm font-medium flex items-center gap-1.5 transition">
+                                📥 Backup Node
+                            </button>
+                            <button onclick="deleteNode('${n.id}')" class="text-slate-500 hover:text-red-400 text-sm transition font-medium">Remove</button>
                         </div>
                     </div>
-                    <div class="flex justify-between items-center border-t border-slate-700 pt-4">
-                        <button onclick="backupNode('${node.id}')" class="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-1 transition">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                            Save Backup
-                        </button>
-                        <button onclick="deleteNode('${node.id}')" class="text-slate-500 hover:text-red-400 text-sm transition">Remove</button>
-                    </div>
-                </div>
-            `).join('');
+                `).join('');
+
+                updateDropdowns();
+            } catch (err) {
+                console.error('Failed to fetch dashboard', err);
+            }
+        }
+
+        function updateDropdowns() {
+            const srcSelect = document.getElementById('syncSource');
+            const tgtSelect = document.getElementById('syncTargets');
+            
+            const currentSrc = srcSelect.value;
+            const currentTargets = Array.from(tgtSelect.selectedOptions).map(o => o.value);
+
+            srcSelect.innerHTML = '<option value="">-- Select Source Pi-hole --</option>' + cachedNodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
+            tgtSelect.innerHTML = cachedNodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
+
+            if (currentSrc) srcSelect.value = currentSrc;
+            Array.from(tgtSelect.options).forEach(opt => {
+                if (currentTargets.includes(opt.value)) opt.selected = true;
+            });
         }
 
         async function addNode(e) {
             e.preventDefault();
             const payload = {
-                id: document.getElementById('nodeId').value.replace(/\s+/g, '-').toLowerCase(),
-                name: document.getElementById('nodeName').value,
-                url: document.getElementById('nodeUrl').value.replace(/\/$/, ""),
+                id: document.getElementById('nodeId').value.trim(),
+                name: document.getElementById('nodeName').value.trim(),
+                url: document.getElementById('nodeUrl').value.trim(),
                 password: document.getElementById('nodePwd').value
             };
-            await fetch('/api/nodes', {
+            const res = await fetch('/api/nodes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            e.target.reset();
-            fetchDashboard();
-        }
-
-        async function deleteNode(id) {
-            if(confirm("Remove this Node?")) {
-                await fetch(`/api/nodes/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                e.target.reset();
                 fetchDashboard();
+            } else {
+                alert('Failed to save node.');
             }
         }
 
-        async function toggleBlocking(action, time) {
-            await fetch(`/api/blocking?action=${action}&time=${time}`, { method: 'POST' });
-            setTimeout(fetchDashboard, 1500);
+        async function deleteNode(id) {
+            if (confirm("Are you sure you want to remove this node?")) {
+                await fetch(`/api/nodes/${id}`, { method: 'DELETE' });
+                fetchDashboard();
+                loadBackups();
+            }
         }
 
-        async function backupNode(id) {
-            alert('Triggering background backup... Archive will be saved to your /config/backups folder.');
-            await fetch(`/api/backup/${id}`);
+        async function toggleBlocking(blocking, timer) {
+            await fetch('/api/blocking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ blocking, timer, node_ids: [] })
+            });
+            setTimeout(fetchDashboard, 1200);
+        }
+
+        async function createBackup(nodeId) {
+            const statusDiv = document.getElementById('syncStatus');
+            statusDiv.innerText = "Creating backup archive...";
+            const res = await fetch(`/api/backups/create/${nodeId}`, { method: 'POST' });
+            const data = await res.json();
+            statusDiv.innerText = "Backup complete!";
+            loadBackups();
+            setTimeout(() => { statusDiv.innerText = ""; }, 4000);
+        }
+
+        async function loadBackups() {
+            const res = await fetch('/api/backups');
+            const backups = await res.json();
+            const table = document.getElementById('backupTable');
+            
+            if (backups.length === 0) {
+                table.innerHTML = '<tr><td colspan="4" class="py-4 px-4 text-center text-slate-500 font-sans">No backups found in vault.</td></tr>';
+                return;
+            }
+
+            table.innerHTML = backups.map(b => `
+                <tr class="hover:bg-slate-700/20 transition">
+                    <td class="py-3 px-4 text-slate-200">${b.filename}</td>
+                    <td class="py-3 px-4 text-slate-400">${b.size_kb} KB</td>
+                    <td class="py-3 px-4 text-slate-400">${b.created}</td>
+                    <td class="py-3 px-4 text-right space-x-3">
+                        <a href="/api/backups/download/${b.filename}" class="text-sky-400 hover:text-sky-300 font-sans font-medium">Download</a>
+                        <button onclick="deleteBackup('${b.filename}')" class="text-red-400 hover:text-red-300 font-sans font-medium">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteBackup(filename) {
+            if (confirm(`Delete backup ${filename}?`)) {
+                await fetch(`/api/backups/${filename}`, { method: 'DELETE' });
+                loadBackups();
+            }
+        }
+
+        async function executeTeleportSync() {
+            const source_id = document.getElementById('syncSource').value;
+            const target_ids = Array.from(document.getElementById('syncTargets').selectedOptions).map(o => o.value);
+            const statusDiv = document.getElementById('syncStatus');
+
+            if (!source_id) {
+                alert('Please select a Source Pi-hole.');
+                return;
+            }
+            if (target_ids.length === 0) {
+                alert('Please select at least one Target Pi-hole.');
+                return;
+            }
+
+            const options = {
+                adlists: document.getElementById('optAdlists').checked,
+                domains: document.getElementById('optDomains').checked,
+                groups: document.getElementById('optGroups').checked,
+                local_dns: document.getElementById('optLocalDns').checked,
+                upstream_dns: document.getElementById('optUpstream').checked,
+                system_dhcp: document.getElementById('optSysDhcp').checked,
+                run_gravity: document.getElementById('optGravity').checked
+            };
+
+            statusDiv.innerText = "⏳ Exporting and syncing Teleporter archive across nodes...";
+            statusDiv.className = "text-sm text-center text-amber-400 font-medium";
+
+            try {
+                const res = await fetch('/api/teleport', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_id, target_ids, options })
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    const fails = data.results.filter(r => r.status !== 'success');
+                    if (fails.length > 0) {
+                        statusDiv.innerText = `⚠️ Finished with errors: ${fails.map(f => f.target + ': ' + f.detail).join(' | ')}`;
+                        statusDiv.className = "text-sm text-center text-red-400 font-medium";
+                    } else {
+                        statusDiv.innerText = `✨ Teleport sync completed successfully across all targets! (Snapshot: ${data.snapshot_saved})`;
+                        statusDiv.className = "text-sm text-center text-emerald-400 font-medium";
+                    }
+                    loadBackups();
+                } else {
+                    statusDiv.innerText = `❌ Error: ${data.detail || 'Sync failed'}`;
+                    statusDiv.className = "text-sm text-center text-red-400 font-medium";
+                }
+            } catch (err) {
+                statusDiv.innerText = "❌ Network error during Teleport sync.";
+                statusDiv.className = "text-sm text-center text-red-400 font-medium";
+            }
         }
 
         setInterval(fetchDashboard, 10000);
         fetchDashboard();
+        loadBackups();
     </script>
 </body>
 </html>
+       
