@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#6366F1" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="#0F172A"/>
+  <path d="M256 100 L370 150 V260 C370 340 256 400 256 400 C256 400 142 340 142 260 V150 Z" fill="url(#shieldGrad)" />
+  <path d="M256 160 A96 96 0 0 1 345 220" stroke="url(#orbitGrad)" stroke-width="22" stroke-linecap="round" fill="none"/>
+  <polygon points="345,195 365,228 325,235" fill="#38BDF8"/>
+  <path d="M256 340 A96 96 0 0 1 167 280" stroke="url(#orbitGrad)" stroke-width="22" stroke-linecap="round" fill="none"/>
+  <polygon points="167,305 147,272 187,265" fill="#6366F1"/>
+  <circle cx="256" cy="250" r="26" fill="#FFFFFF"/>
+</svg>
