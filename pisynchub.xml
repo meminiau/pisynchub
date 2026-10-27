@@ -13,7 +13,7 @@
   <Category>Network:DNS Status:Beta</Category>
   <WebUI>http://[IP]:[PORT:8085]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/meminiau/pisynchub/main/pisynchub.xml</TemplateURL>
-  <Icon>https://cdn.jsdelivr.net/gh/meminiau/pisynchub@main/icon.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/meminiau/pisynchub/main/icon.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
