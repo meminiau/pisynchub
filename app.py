@@ -182,36 +182,47 @@ async def get_pihole_session(client: httpx.AsyncClient, base_url: str, password:
     return None
 
 # --- Pi-hole v6 Live Status & Teleporter Sync Engine ---
+
 async def fetch_node_stats(node: Dict[str, Any]) -> Dict[str, Any]:
-    base_url = node["url"]
+    base_url = node.get("url", "").rstrip("/")
     password = node.get("api_key", "")
-    
-    async with httpx.AsyncClient(timeout=4.0) as client:
+
+    async with httpx.AsyncClient(timeout=5.0) as client:
         headers = {}
         if password:
             sid = await get_pihole_session(client, base_url, password)
             if sid:
                 headers["sid"] = sid
+                headers["X-FTL-SID"] = sid
 
         try:
             resp = await client.get(f"{base_url}/api/stats/summary", headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
+
+                q_data = data.get("queries", {}) if isinstance(data.get("queries"), dict) else data
+                total_q = q_data.get("total", data.get("total_queries", 0))
+                blocked_q = q_data.get("blocked", data.get("blocked_queries", 0))
+                pct = q_data.get("percent_blocked", data.get("percent_blocked", 0.0))
+
+                g_data = data.get("gravity", {}) if isinstance(data.get("gravity"), dict) else {}
+                gravity_size = g_data.get("domains_being_blocked", data.get("domains_being_blocked", 0))
+
                 return {
-                    "name": node["name"],
+                    "name": node.get("name", "Pi-hole"),
                     "url": base_url,
                     "online": True,
-                    "queries": data.get("queries", {}).get("total", 0),
-                    "blocked": data.get("queries", {}).get("blocked", 0),
-                    "percent_blocked": round(data.get("queries", {}).get("percent_blocked", 0.0), 1),
-                    "gravity_size": data.get("gravity", {}).get("domains_being_blocked", 0),
-                    "status": data.get("status", "enabled")
+                    "queries": total_q,
+                    "blocked": blocked_q,
+                    "percent_blocked": round(float(pct), 1) if pct else 0.0,
+                    "gravity_size": gravity_size,
+                    "status": "online"
                 }
         except Exception:
             pass
 
     return {
-        "name": node["name"],
+        "name": node.get("name", "Pi-hole"),
         "url": base_url,
         "online": False,
         "queries": 0,
@@ -220,6 +231,8 @@ async def fetch_node_stats(node: Dict[str, Any]) -> Dict[str, Any]:
         "gravity_size": 0,
         "status": "offline"
     }
+    
+             
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats(request: Request):
