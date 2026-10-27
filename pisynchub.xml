@@ -2,17 +2,17 @@
 <Container version="2">
   <Name>PiSyncHub</Name>
   <Repository>homerj007/pisynchub:latest</Repository>
-  <Registry>https://hub.docker.com/r/homerj007/pisynchub</Registry>
+  <Registry>https://hub.docker.com/r/homerj007/pisynchub/</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
   <Support>https://github.com/meminiau/pisynchub/issues</Support>
   <Project>https://github.com/meminiau/pisynchub</Project>
-  <Overview>Unified multi-node dashboard and selective Teleporter backup/sync engine for Pi-hole v6.</Overview>
-  <Category>Network:DNS</Category>
+  <Overview>Unified multi-node dashboard and selective Teleporter backup/sync engine for Pi-hole v6. Note: Early build requiring testing.</Overview>
+  <Category>Network:DNS Status:Beta</Category>
   <WebUI>http://[IP]:[PORT:8085]/</WebUI>
-  <TemplateURL/>
+  <TemplateURL>https://raw.githubusercontent.com/meminiau/pisynchub/main/pisynchub.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/meminiau/pisynchub/main/icon.svg</Icon>
   <ExtraParams/>
   <PostArgs/>
