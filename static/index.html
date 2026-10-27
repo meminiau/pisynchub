@@ -1,354 +1,315 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiSyncHub - Multi-Node Pi-hole Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+  <meta charset="UTF-8">
+  <title>PiSyncHub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <style>
+    :root {
+      --bg: #121212;
+      --card-bg: #1e1e1e;
+      --border: #333333;
+      --accent: #ff6600;
+      --text: #e0e0e0;
+      --muted: #888888;
+      --danger: #e53935;
+    }
+    body {
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.25rem;
+    }
+    .brand img {
+      width: 28px;
+      height: 28px;
+    }
+    .user-panel {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.9rem;
+    }
+    button {
+      background-color: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary {
+      background-color: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    main {
+      padding: 1.5rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .node-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .node-item:last-child {
+      border-bottom: none;
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 360px;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    input {
+      width: 100%;
+      padding: 0.6rem;
+      background: #141414;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: #fff;
+      box-sizing: border-box;
+    }
+    .error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
-    <div class="max-w-6xl mx-auto space-y-8">
-        
-        <!-- Header & Global Blocking Controls -->
-        <header class="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 backdrop-blur">
-            <div>
-                <h1 class="text-3xl font-extrabold text-emerald-400 tracking-tight flex items-center gap-2">
-                    🛡️ PiSyncHub
-                </h1>
-                <p class="text-sm text-slate-400 mt-1">Unified Multi-Node Pi-hole v6 Dashboard & Teleporter Sync</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <button onclick="toggleBlocking(false, 300)" class="bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-lg shadow-amber-500/5">Pause All (5m)</button>
-                <button onclick="toggleBlocking(false, 1800)" class="bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-lg shadow-orange-500/5">Pause All (30m)</button>
-                <button onclick="toggleBlocking(true, 0)" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-lg shadow-emerald-500/5">Enable All</button>
-            </div>
-        </header>
+<body>
 
-        <!-- Network-Wide Aggregated Totals Banner -->
-        <div id="totalsBanner" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
-                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Queries</p>
-                <p id="totQueries" class="text-3xl font-mono font-bold mt-2 text-slate-100">0</p>
-            </div>
-            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
-                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Blocked Ads</p>
-                <p id="totBlocked" class="text-3xl font-mono font-bold mt-2 text-emerald-400">0</p>
-            </div>
-            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
-                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Block Percentage</p>
-                <p id="totPercent" class="text-3xl font-mono font-bold mt-2 text-sky-400">0.0%</p>
-            </div>
-            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60">
-                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Active Nodes</p>
-                <p id="totNodes" class="text-3xl font-mono font-bold mt-2 text-indigo-400">0 / 0</p>
-            </div>
-        </div>
+  <header>
+    <div class="brand">
+      <img src="/icon.svg" alt="PiSyncHub Logo">
+      <span>PiSyncHub</span>
+    </div>
+    <div class="user-panel">
+      <span id="nav-user"></span>
+      <button class="secondary" id="logout-btn" onclick="logout()" style="display:none;">Log Out</button>
+    </div>
+  </header>
 
-        <!-- Node Status Cards Grid -->
-        <div id="nodeGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700/60 text-slate-400 text-center py-12">Loading Pi-hole nodes...</div>
-        </div>
-
-        <!-- Split Panel: Selective Teleport Sync -->
-        <div class="bg-slate-800 p-6 md:p-8 rounded-2xl border border-slate-700/60 space-y-6">
-            <div>
-                <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">🔄 Teleporter Sync Engine</h2>
-                <p class="text-sm text-slate-400 mt-1">Export configuration from a source Pi-hole and selectively push it to target instances.</p>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Source Pi-hole (Export From)</label>
-                    <select id="syncSource" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-slate-100 outline-none focus:border-emerald-500 font-medium">
-                        <option value="">-- Load nodes first --</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Target Pi-hole(s) (Import Into - Hold Ctrl/Cmd for multi)</label>
-                    <select id="syncTargets" multiple class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-slate-100 outline-none focus:border-emerald-500 h-28 font-medium">
-                        <!-- Populated dynamically -->
-                    </select>
-                </div>
-            </div>
-
-            <!-- Granular Checkboxes -->
-            <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Select What to Sync</label>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
-                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optAdlists" checked class="w-4 h-4 accent-emerald-500 rounded"> Adlists & Blocklists</label>
-                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optDomains" checked class="w-4 h-4 accent-emerald-500 rounded"> Domains & Regex</label>
-                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optGroups" checked class="w-4 h-4 accent-emerald-500 rounded"> Groups & Clients</label>
-                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optLocalDns" checked class="w-4 h-4 accent-emerald-500 rounded"> Local DNS Records</label>
-                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optUpstream" checked class="w-4 h-4 accent-emerald-500 rounded"> Upstream DNS Settings</label>
-                    <label class="flex items-center gap-3 text-sm cursor-pointer"><input type="checkbox" id="optSysDhcp" class="w-4 h-4 accent-emerald-500 rounded"> System & DHCP (Risky)</label>
-                    <label class="flex items-center gap-3 text-sm cursor-pointer col-span-2"><input type="checkbox" id="optGravity" checked class="w-4 h-4 accent-emerald-500 rounded"> Auto-run Gravity Update after sync</label>
-                </div>
-            </div>
-
-            <button onclick="executeTeleportSync()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-emerald-600/20">
-                🚀 Run Selective Teleport Sync Now
-            </button>
-            <div id="syncStatus" class="text-sm text-center text-slate-400"></div>
-        </div>
-
-        <!-- Split Panel: Backup Vault & Management -->
-        <div class="bg-slate-800 p-6 md:p-8 rounded-2xl border border-slate-700/60 space-y-6">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">📦 Standalone Backup Vault</h2>
-                    <p class="text-sm text-slate-400 mt-1">Snapshot archives stored locally in unRAID appdata. Auto-prunes older than 10 per node.</p>
-                </div>
-                <div class="flex gap-2 w-full md:w-auto">
-                    <button onclick="createBackup('all')" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition">Backup All Nodes</button>
-                    <button onclick="loadBackups()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition">🔄 Refresh Vault</button>
-                </div>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-700 text-xs font-semibold uppercase text-slate-400">
-                            <th class="py-3 px-4">Backup Archive Filename</th>
-                            <th class="py-3 px-4">Size</th>
-                            <th class="py-3 px-4">Timestamp</th>
-                            <th class="py-3 px-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="backupTable" class="divide-y divide-slate-700/50 text-sm font-mono">
-                        <tr><td colspan="4" class="py-4 px-4 text-center text-slate-500">Loading backup vault...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Node Manager Configuration -->
-        <div class="bg-slate-800 p-6 md:p-8 rounded-2xl border border-slate-700/60 space-y-6">
-            <h2 class="text-xl font-bold text-slate-100">⚙️ Node Manager</h2>
-            <form id="addNodeForm" class="grid grid-cols-1 md:grid-cols-5 gap-4" onsubmit="addNode(event)">
-                <input type="text" id="nodeId" placeholder="ID (e.g. server1)" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
-                <input type="text" id="nodeName" placeholder="Name (Server 1 Pi-hole)" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
-                <input type="url" id="nodeUrl" placeholder="URL (http://192.168.1.50)" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
-                <input type="password" id="nodePwd" placeholder="App Password" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium" required>
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-indigo-600/20">Add Node</button>
-            </form>
-        </div>
-
+  <main id="app-content">
+    <div class="card">
+      <h3>Configured Pi-hole Nodes</h3>
+      <div id="nodes-list">Loading nodes...</div>
     </div>
 
-    <script>
-        let cachedNodes = [];
+    <div class="card">
+      <h3>Add Pi-hole Node</h3>
+      <div class="form-group">
+        <label>Node Name (e.g., Primary Pi-hole)</label>
+        <input type="text" id="new-node-name" placeholder="Pi-hole 1">
+      </div>
+      <div class="form-group">
+        <label>Base URL / IP</label>
+        <input type="text" id="new-node-url" placeholder="http://192.168.1.5">
+      </div>
+      <div class="form-group">
+        <label>API Key / Web Password</label>
+        <input type="password" id="new-node-key">
+      </div>
+      <button onclick="addNode()">Add Node</button>
+    </div>
+  </main>
 
-        async function fetchDashboard() {
-            try {
-                const res = await fetch('/api/dashboard');
-                const data = await res.json();
-                
-                // Update Totals
-                document.getElementById('totQueries').innerText = (data.totals.queries || 0).toLocaleString();
-                document.getElementById('totBlocked').innerText = (data.totals.blocked || 0).toLocaleString();
-                document.getElementById('totPercent').innerText = (data.totals.percent_blocked || 0).toFixed(1) + '%';
-                document.getElementById('totNodes').innerText = `${data.totals.online_nodes} / ${data.totals.total_nodes}`;
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+      <h2 id="modal-title" style="margin-top:0; color:var(--accent);">Admin Setup</h2>
+      <p id="modal-desc" style="font-size:0.85rem; color:var(--muted);">Set your admin credentials</p>
+      <div id="modal-error" class="error" style="display:none;"></div>
 
-                cachedNodes = data.nodes;
-                const grid = document.getElementById('nodeGrid');
-                
-                if (data.nodes.length === 0) {
-                    grid.innerHTML = '<div class="col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700/60 text-slate-400 text-center py-12">No Pi-hole nodes added yet. Add one below.</div>';
-                    return;
-                }
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="auth-username" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="auth-password" autocomplete="current-password">
+      </div>
+      <div class="form-group" id="confirm-pwd-group">
+        <label>Confirm Password</label>
+        <input type="password" id="auth-confirm-password" autocomplete="new-password">
+      </div>
+      <button id="auth-submit-btn" style="width:100%;" onclick="submitAuth()">Submit</button>
+    </div>
+  </div>
 
-                grid.innerHTML = data.nodes.map(n => `
-                    <div class="bg-slate-800 p-6 rounded-2xl border-l-4 ${n.status === 'online' ? 'border-emerald-500' : 'border-red-500'} border-y border-r border-slate-700/60 shadow-xl flex flex-col justify-between">
-                        <div>
-                            <div class="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 class="text-xl font-bold text-slate-100">${n.name}</h3>
-                                    <a href="${n.url}" target="_blank" class="text-xs text-slate-400 hover:text-emerald-400 transition">${n.url} ↗</a>
-                                </div>
-                                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-lg tracking-wider ${n.status === 'online' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">${n.status}</span>
-                            </div>
+  <script>
+    let isSetupMode = false;
 
-                            <div class="grid grid-cols-2 gap-3 mb-6">
-                                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700/50">
-                                    <p class="text-slate-400 text-xs font-medium">Queries</p>
-                                    <p class="text-2xl font-mono font-bold mt-1 text-slate-100">${(n.queries || 0).toLocaleString()}</p>
-                                </div>
-                                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700/50">
-                                    <p class="text-slate-400 text-xs font-medium">Blocked (${(n.percent || 0).toFixed(1)}%)</p>
-                                    <p class="text-2xl font-mono font-bold mt-1 text-emerald-400">${(n.blocked || 0).toLocaleString()}</p>
-                                </div>
-                            </div>
-                        </div>
+    async function checkAuth() {
+      const res = await fetch('/api/auth/status');
+      const data = await res.json();
 
-                        <div class="flex justify-between items-center border-t border-slate-700/60 pt-4 mt-2">
-                            <button onclick="createBackup('${n.id}')" class="text-sky-400 hover:text-sky-300 text-sm font-medium flex items-center gap-1.5 transition">
-                                📥 Backup Node
-                            </button>
-                            <button onclick="deleteNode('${n.id}')" class="text-slate-500 hover:text-red-400 text-sm transition font-medium">Remove</button>
-                        </div>
-                    </div>
-                `).join('');
+      if (data.setup_required) {
+        showSetupModal();
+      } else if (!data.logged_in) {
+        showLoginModal();
+      } else {
+        document.getElementById('auth-modal').style.display = 'none';
+        document.getElementById('nav-user').textContent = data.username;
+        document.getElementById('logout-btn').style.display = 'inline-block';
+        loadNodes();
+      }
+    }
 
-                updateDropdowns();
-            } catch (err) {
-                console.error('Failed to fetch dashboard', err);
-            }
+    function showSetupModal() {
+      isSetupMode = true;
+      document.getElementById('auth-modal').style.display = 'flex';
+      document.getElementById('modal-title').textContent = 'Admin Setup';
+      document.getElementById('modal-desc').textContent = 'Create your administrator account';
+      document.getElementById('confirm-pwd-group').style.display = 'block';
+      document.getElementById('auth-submit-btn').textContent = 'Complete Setup';
+    }
+
+    function showLoginModal() {
+      isSetupMode = false;
+      document.getElementById('auth-modal').style.display = 'flex';
+      document.getElementById('modal-title').textContent = 'PiSyncHub Login';
+      document.getElementById('modal-desc').textContent = 'Enter your admin credentials';
+      document.getElementById('confirm-pwd-group').style.display = 'none';
+      document.getElementById('auth-submit-btn').textContent = 'Log In';
+    }
+
+    async function submitAuth() {
+      const username = document.getElementById('auth-username').value.trim();
+      const password = document.getElementById('auth-password').value.trim();
+      const errBox = document.getElementById('modal-error');
+      errBox.style.display = 'none';
+
+      if (isSetupMode) {
+        const confirm = document.getElementById('auth-confirm-password').value.trim();
+        if (password !== confirm) {
+          errBox.textContent = "Passwords do not match";
+          errBox.style.display = 'block';
+          return;
         }
-
-        function updateDropdowns() {
-            const srcSelect = document.getElementById('syncSource');
-            const tgtSelect = document.getElementById('syncTargets');
-            
-            const currentSrc = srcSelect.value;
-            const currentTargets = Array.from(tgtSelect.selectedOptions).map(o => o.value);
-
-            srcSelect.innerHTML = '<option value="">-- Select Source Pi-hole --</option>' + cachedNodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
-            tgtSelect.innerHTML = cachedNodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
-
-            if (currentSrc) srcSelect.value = currentSrc;
-            Array.from(tgtSelect.options).forEach(opt => {
-                if (currentTargets.includes(opt.value)) opt.selected = true;
-            });
+        const res = await fetch('/api/auth/setup', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          checkAuth();
+        } else {
+          errBox.textContent = result.message;
+          errBox.style.display = 'block';
         }
-
-        async function addNode(e) {
-            e.preventDefault();
-            const payload = {
-                id: document.getElementById('nodeId').value.trim(),
-                name: document.getElementById('nodeName').value.trim(),
-                url: document.getElementById('nodeUrl').value.trim(),
-                password: document.getElementById('nodePwd').value
-            };
-            const res = await fetch('/api/nodes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                e.target.reset();
-                fetchDashboard();
-            } else {
-                alert('Failed to save node.');
-            }
+      } else {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          checkAuth();
+        } else {
+          errBox.textContent = result.message;
+          errBox.style.display = 'block';
         }
+      }
+    }
 
-        async function deleteNode(id) {
-            if (confirm("Are you sure you want to remove this node?")) {
-                await fetch(`/api/nodes/${id}`, { method: 'DELETE' });
-                fetchDashboard();
-                loadBackups();
-            }
-        }
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.reload();
+    }
 
-        async function toggleBlocking(blocking, timer) {
-            await fetch('/api/blocking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ blocking, timer, node_ids: [] })
-            });
-            setTimeout(fetchDashboard, 1200);
-        }
+    async function loadNodes() {
+      const res = await fetch('/api/nodes');
+      if (!res.ok) return;
+      const data = await res.json();
+      const container = document.getElementById('nodes-list');
+      if (!data.nodes || data.nodes.length === 0) {
+        container.innerHTML = '<p style="color:var(--muted);">No nodes configured yet.</p>';
+        return;
+      }
+      container.innerHTML = data.nodes.map(n => `
+        <div class="node-item">
+          <div>
+            <strong>${n.name}</strong><br>
+            <small style="color:var(--muted);">${n.url}</small>
+          </div>
+        </div>
+      `).join('');
+    }
 
-        async function createBackup(nodeId) {
-            const statusDiv = document.getElementById('syncStatus');
-            statusDiv.innerText = "Creating backup archive...";
-            const res = await fetch(`/api/backups/create/${nodeId}`, { method: 'POST' });
-            const data = await res.json();
-            statusDiv.innerText = "Backup complete!";
-            loadBackups();
-            setTimeout(() => { statusDiv.innerText = ""; }, 4000);
-        }
+    async function addNode() {
+      const name = document.getElementById('new-node-name').value.trim();
+      const url = document.getElementById('new-node-url').value.trim();
+      const api_key = document.getElementById('new-node-key').value.trim();
 
-        async function loadBackups() {
-            const res = await fetch('/api/backups');
-            const backups = await res.json();
-            const table = document.getElementById('backupTable');
-            
-            if (backups.length === 0) {
-                table.innerHTML = '<tr><td colspan="4" class="py-4 px-4 text-center text-slate-500 font-sans">No backups found in vault.</td></tr>';
-                return;
-            }
+      if (!name || !url) return alert('Name and URL are required.');
 
-            table.innerHTML = backups.map(b => `
-                <tr class="hover:bg-slate-700/20 transition">
-                    <td class="py-3 px-4 text-slate-200">${b.filename}</td>
-                    <td class="py-3 px-4 text-slate-400">${b.size_kb} KB</td>
-                    <td class="py-3 px-4 text-slate-400">${b.created}</td>
-                    <td class="py-3 px-4 text-right space-x-3">
-                        <a href="/api/backups/download/${b.filename}" class="text-sky-400 hover:text-sky-300 font-sans font-medium">Download</a>
-                        <button onclick="deleteBackup('${b.filename}')" class="text-red-400 hover:text-red-300 font-sans font-medium">Delete</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
+      const res = await fetch('/api/nodes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, url, api_key })
+      });
+      if (res.ok) {
+        document.getElementById('new-node-name').value = '';
+        document.getElementById('new-node-url').value = '';
+        document.getElementById('new-node-key').value = '';
+        loadNodes();
+      }
+    }
 
-        async function deleteBackup(filename) {
-            if (confirm(`Delete backup ${filename}?`)) {
-                await fetch(`/api/backups/${filename}`, { method: 'DELETE' });
-                loadBackups();
-            }
-        }
-
-        async function executeTeleportSync() {
-            const source_id = document.getElementById('syncSource').value;
-            const target_ids = Array.from(document.getElementById('syncTargets').selectedOptions).map(o => o.value);
-            const statusDiv = document.getElementById('syncStatus');
-
-            if (!source_id) {
-                alert('Please select a Source Pi-hole.');
-                return;
-            }
-            if (target_ids.length === 0) {
-                alert('Please select at least one Target Pi-hole.');
-                return;
-            }
-
-            const options = {
-                adlists: document.getElementById('optAdlists').checked,
-                domains: document.getElementById('optDomains').checked,
-                groups: document.getElementById('optGroups').checked,
-                local_dns: document.getElementById('optLocalDns').checked,
-                upstream_dns: document.getElementById('optUpstream').checked,
-                system_dhcp: document.getElementById('optSysDhcp').checked,
-                run_gravity: document.getElementById('optGravity').checked
-            };
-
-            statusDiv.innerText = "⏳ Exporting and syncing Teleporter archive across nodes...";
-            statusDiv.className = "text-sm text-center text-amber-400 font-medium";
-
-            try {
-                const res = await fetch('/api/teleport', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ source_id, target_ids, options })
-                });
-                const data = await res.json();
-                
-                if (res.ok) {
-                    const fails = data.results.filter(r => r.status !== 'success');
-                    if (fails.length > 0) {
-                        statusDiv.innerText = `⚠️ Finished with errors: ${fails.map(f => f.target + ': ' + f.detail).join(' | ')}`;
-                        statusDiv.className = "text-sm text-center text-red-400 font-medium";
-                    } else {
-                        statusDiv.innerText = `✨ Teleport sync completed successfully across all targets! (Snapshot: ${data.snapshot_saved})`;
-                        statusDiv.className = "text-sm text-center text-emerald-400 font-medium";
-                    }
-                    loadBackups();
-                } else {
-                    statusDiv.innerText = `❌ Error: ${data.detail || 'Sync failed'}`;
-                    statusDiv.className = "text-sm text-center text-red-400 font-medium";
-                }
-            } catch (err) {
-                statusDiv.innerText = "❌ Network error during Teleport sync.";
-                statusDiv.className = "text-sm text-center text-red-400 font-medium";
-            }
-        }
-
-        setInterval(fetchDashboard, 10000);
-        fetchDashboard();
-        loadBackups();
-    </script>
+    checkAuth();
+  </script>
 </body>
 </html>
-       
