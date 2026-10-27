@@ -16,6 +16,11 @@ Unified multi-node dashboard and selective Teleporter sync engine designed for P
 
 ---
 
+### Storage & Appdata Note
+By default, the unRAID template maps the container `/config` directory to `/mnt/user/appdata/pisynchub`. If your unRAID appdata cache pool or share is stored in an alternate location (e.g., `/mnt/cache/appdata/pisynchub` or a custom unassigned drive), ensure you adjust the host path accordingly in the unRAID container template settings before starting.
+
+---
+
 ## Quick Start (Docker)
 
 Run the container directly:
