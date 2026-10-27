@@ -1,27 +1,37 @@
 import os
 import json
 import secrets
-from functools import wraps
-from flask import Flask, request, jsonify, send_from_directory, session
-from werkzeug.security import generate_password_hash, check_password_hash
+import hashlib
+from typing import Optional
+from fastapi import FastAPI, Request, Response, HTTPException, status
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 
-app = Flask(__name__, static_folder="static")
+app = FastAPI(title="PiSyncHub")
 
 CONFIG_DIR = os.environ.get("CONFIG_DIR", "/config")
 AUTH_FILE = os.path.join(CONFIG_DIR, "auth.json")
 NODES_FILE = os.path.join(CONFIG_DIR, "nodes.json")
-SECRET_FILE = os.path.join(CONFIG_DIR, "secret.key")
+BACKUPS_DIR = os.path.join(CONFIG_DIR, "backups")
 
 os.makedirs(CONFIG_DIR, exist_ok=True)
+os.makedirs(BACKUPS_DIR, exist_ok=True)
 
-# Persistent session secret
-if not os.path.exists(SECRET_FILE):
-    with open(SECRET_FILE, "w") as f:
-        f.write(secrets.token_hex(32))
-with open(SECRET_FILE, "r") as f:
-    app.secret_key = f.read().strip()
+# In-memory active session tokens
+ACTIVE_SESSIONS = set()
 
-def is_setup_completed():
+def hash_password(password: str, salt: str = None) -> tuple[str, str]:
+    if not salt:
+        salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return key.hex(), salt
+
+def verify_password(stored_hash: str, salt: str, password: str) -> bool:
+    new_hash, _ = hash_password(password, salt)
+    return secrets.compare_digest(stored_hash, new_hash)
+
+def is_setup_completed() -> bool:
     return os.path.exists(AUTH_FILE)
 
 def load_auth():
@@ -46,103 +56,124 @@ def save_nodes(nodes):
     with open(NODES_FILE, "w") as f:
         json.dump(nodes, f, indent=4)
 
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not is_setup_completed():
-            return jsonify({"status": "error", "message": "Setup required", "setup_required": True}), 401
-        if not session.get("logged_in"):
-            return jsonify({"status": "error", "message": "Authentication required"}), 401
-        return f(*args, **kwargs)
-    return decorated_function
+def check_auth_token(request: Request) -> bool:
+    token = request.cookies.get("pisync_session")
+    return bool(token and token in ACTIVE_SESSIONS)
 
-# --- Frontend Static Serving ---
-@app.route("/")
-def index():
-    return send_from_directory("static", "index.html")
+# --- Pydantic Request Models ---
+class AuthModel(BaseModel):
+    username: str
+    password: str
 
-@app.route("/<path:path>")
-def static_proxy(path):
-    return send_from_directory("static", path)
+class NodeModel(BaseModel):
+    name: str
+    url: str
+    api_key: Optional[str] = ""
 
-# --- Authentication Endpoints ---
-@app.route("/api/auth/status", methods=["GET"])
-def auth_status():
-    return jsonify({
+# --- System & Health Endpoints ---
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "service": "PiSyncHub"}
+
+# --- Auth Endpoints ---
+@app.get("/api/auth/status")
+def auth_status(request: Request):
+    auth_data = load_auth()
+    return {
         "setup_required": not is_setup_completed(),
-        "logged_in": bool(session.get("logged_in")),
-        "username": session.get("username")
-    })
+        "logged_in": check_auth_token(request),
+        "username": auth_data.get("username") if auth_data and check_auth_token(request) else None
+    }
 
-@app.route("/api/auth/setup", methods=["POST"])
-def auth_setup():
+@app.post("/api/auth/setup")
+def auth_setup(creds: AuthModel, response: Response):
     if is_setup_completed():
-        return jsonify({"status": "error", "message": "Setup already completed"}), 400
+        raise HTTPException(status_code=400, detail="Setup already completed")
 
-    data = request.get_json() or {}
-    username = data.get("username", "").strip()
-    password = data.get("password", "").strip()
+    user = creds.username.strip()
+    pwd = creds.password.strip()
 
-    if not username or not password:
-        return jsonify({"status": "error", "message": "Username and password required"}), 400
-    if len(password) < 6:
-        return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
+    if not user or not pwd:
+        raise HTTPException(status_code=400, detail="Username and password required")
+    if len(pwd) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
+    pwd_hash, salt = hash_password(pwd)
     auth_data = {
-        "username": username,
-        "password_hash": generate_password_hash(password)
+        "username": user,
+        "password_hash": pwd_hash,
+        "salt": salt
     }
     with open(AUTH_FILE, "w") as f:
         json.dump(auth_data, f, indent=4)
 
-    session["logged_in"] = True
-    session["username"] = username
-    return jsonify({"status": "success", "username": username})
+    token = secrets.token_hex(32)
+    ACTIVE_SESSIONS.add(token)
+    response.set_cookie(key="pisync_session", value=token, httponly=True, samesite="lax")
+    return {"status": "success", "username": user}
 
-@app.route("/api/auth/login", methods=["POST"])
-def auth_login():
+@app.post("/api/auth/login")
+def auth_login(creds: AuthModel, response: Response):
     if not is_setup_completed():
-        return jsonify({"status": "error", "message": "Setup required", "setup_required": True}), 400
+        raise HTTPException(status_code=400, detail="Setup required")
 
-    data = request.get_json() or {}
-    username = data.get("username", "").strip()
-    password = data.get("password", "").strip()
     auth_data = load_auth()
+    user = creds.username.strip()
+    pwd = creds.password.strip()
 
-    if auth_data and username == auth_data.get("username") and check_password_hash(auth_data.get("password_hash"), password):
-        session["logged_in"] = True
-        session["username"] = username
-        return jsonify({"status": "success", "username": username})
+    if auth_data and user == auth_data.get("username"):
+        if verify_password(auth_data.get("password_hash"), auth_data.get("salt"), pwd):
+            token = secrets.token_hex(32)
+            ACTIVE_SESSIONS.add(token)
+            response.set_cookie(key="pisync_session", value=token, httponly=True, samesite="lax")
+            return {"status": "success", "username": user}
 
-    return jsonify({"status": "error", "message": "Invalid username or password"}), 401
+    raise HTTPException(status_code=401, detail="Invalid username or password")
 
-@app.route("/api/auth/logout", methods=["POST"])
-def auth_logout():
-    session.clear()
-    return jsonify({"status": "success"})
+@app.post("/api/auth/logout")
+def auth_logout(request: Request, response: Response):
+    token = request.cookies.get("pisync_session")
+    if token in ACTIVE_SESSIONS:
+        ACTIVE_SESSIONS.remove(token)
+    response.delete_cookie("pisync_session")
+    return {"status": "success"}
 
-# --- Protected Node Management ---
-@app.route("/api/nodes", methods=["GET"])
-@login_required
-def get_nodes():
-    return jsonify({"status": "success", "nodes": load_nodes()})
+# --- Node Management ---
+@app.get("/api/nodes")
+def get_nodes(request: Request):
+    if not check_auth_token(request):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return {"status": "success", "nodes": load_nodes()}
 
-@app.route("/api/nodes", methods=["POST"])
-@login_required
-def add_node():
-    data = request.get_json() or {}
-    name = data.get("name", "").strip()
-    url = data.get("url", "").strip()
-    api_key = data.get("api_key", "").strip()
+@app.post("/api/nodes")
+def add_node(node: NodeModel, request: Request):
+    if not check_auth_token(request):
+        raise HTTPException(status_code=401, detail="Authentication required")
 
+    name = node.name.strip()
+    url = node.url.strip().rstrip("/")
     if not name or not url:
-        return jsonify({"status": "error", "message": "Node name and URL are required"}), 400
+        raise HTTPException(status_code=400, detail="Node name and URL are required")
 
     nodes = load_nodes()
-    nodes.append({"name": name, "url": url, "api_key": api_key})
+    nodes.append({"name": name, "url": url, "api_key": node.api_key.strip()})
     save_nodes(nodes)
-    return jsonify({"status": "success", "nodes": nodes})
+    return {"status": "success", "nodes": nodes}
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8085)
+# --- Static File Serving ---
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/icon.svg")
+def get_icon():
+    icon_path = "icon.svg"
+    if os.path.exists(icon_path):
+        return FileResponse(icon_path, media_type="image/svg+xml")
+    return Response(status_code=404)
+
+@app.get("/{full_path:path}")
+def serve_spa(full_path: str):
+    static_file = os.path.join("static", full_path)
+    if full_path and os.path.exists(static_file) and os.path.isfile(static_file):
+        return FileResponse(static_file)
+    return FileResponse("static/index.html")
     
