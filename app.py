@@ -77,8 +77,6 @@ class SyncRequestModel(BaseModel):
     target_indices: List[int]
     sync_adlists: bool = True
     sync_domains: bool = True
-    sync_groups: bool = False
-    sync_clients: bool = False
 
 # --- Core Health & Auth Endpoints ---
 @app.get("/api/health")
@@ -169,20 +167,39 @@ def delete_node(index: int, request: Request):
         return {"status": "success", "removed": removed, "nodes": nodes}
     raise HTTPException(status_code=404, detail="Node index not found")
 
+# --- Pi-hole v6 Auth Session Helper ---
+async def get_pihole_session(client: httpx.AsyncClient, base_url: str, password: str) -> Optional[str]:
+    """Logs into Pi-hole v6 and acquires an active sid token."""
+    if not password:
+        return None
+    try:
+        r = await client.post(f"{base_url}/api/auth", json={"password": password}, timeout=4.0)
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("session", {}).get("sid")
+    except Exception:
+        pass
+    return None
+
 # --- Pi-hole v6 Live Status & Teleporter Sync Engine ---
 async def fetch_node_stats(node: Dict[str, Any]) -> Dict[str, Any]:
-    url = f"{node['url']}/api/stats/summary"
-    headers = {}
-    if node.get("api_key"):
-        headers["sid"] = node["api_key"]
-    try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
-            resp = await client.get(url, headers=headers)
+    base_url = node["url"]
+    password = node.get("api_key", "")
+    
+    async with httpx.AsyncClient(timeout=4.0) as client:
+        headers = {}
+        if password:
+            sid = await get_pihole_session(client, base_url, password)
+            if sid:
+                headers["sid"] = sid
+
+        try:
+            resp = await client.get(f"{base_url}/api/stats/summary", headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
                 return {
                     "name": node["name"],
-                    "url": node["url"],
+                    "url": base_url,
                     "online": True,
                     "queries": data.get("queries", {}).get("total", 0),
                     "blocked": data.get("queries", {}).get("blocked", 0),
@@ -190,11 +207,12 @@ async def fetch_node_stats(node: Dict[str, Any]) -> Dict[str, Any]:
                     "gravity_size": data.get("gravity", {}).get("domains_being_blocked", 0),
                     "status": data.get("status", "enabled")
                 }
-    except Exception:
-        pass
+        except Exception:
+            pass
+
     return {
         "name": node["name"],
-        "url": node["url"],
+        "url": base_url,
         "online": False,
         "queries": 0,
         "blocked": 0,
@@ -219,40 +237,56 @@ async def trigger_sync(req: SyncRequestModel, request: Request):
     nodes = load_nodes()
     if req.source_index < 0 or req.source_index >= len(nodes):
         raise HTTPException(status_code=400, detail="Invalid source node")
-    source = nodes[req.source_index]
     
-    # Extract source lists/rules
-    source_headers = {"sid": source["api_key"]} if source.get("api_key") else {}
+    source = nodes[req.source_index]
     sync_results = []
     
     async with httpx.AsyncClient(timeout=10.0) as client:
-        # Fetch Lists
+        # 1. Authenticate with Source
+        source_headers = {}
+        if source.get("api_key"):
+            s_sid = await get_pihole_session(client, source["url"], source["api_key"])
+            if s_sid:
+                source_headers["sid"] = s_sid
+
+        # 2. Extract source lists
         lists_data = []
         if req.sync_adlists:
             try:
                 r = await client.get(f"{source['url']}/api/lists", headers=source_headers)
                 if r.status_code == 200:
                     lists_data = r.json().get("lists", [])
+                else:
+                    sync_results.append(f"Failed to fetch lists from {source['name']} (HTTP {r.status_code})")
             except Exception as e:
                 sync_results.append(f"Failed to fetch adlists from {source['name']}: {str(e)}")
 
-        # Sync to Targets
+        # 3. Push to Target Nodes
         for target_idx in req.target_indices:
             if target_idx == req.source_index or target_idx >= len(nodes):
                 continue
             target = nodes[target_idx]
-            target_headers = {"sid": target["api_key"]} if target.get("api_key") else {}
             
-            # Post adlists to target
+            # Authenticate with Target
+            target_headers = {}
+            if target.get("api_key"):
+                t_sid = await get_pihole_session(client, target["url"], target["api_key"])
+                if t_sid:
+                    target_headers["sid"] = t_sid
+
             if req.sync_adlists and lists_data:
                 try:
                     for adlist in lists_data:
                         await client.post(
                             f"{target['url']}/api/lists",
                             headers=target_headers,
-                            json={"address": adlist.get("address"), "comment": adlist.get("comment", "Synced via PiSyncHub"), "enabled": adlist.get("enabled", True)}
+                            json={
+                                "address": adlist.get("address"),
+                                "comment": adlist.get("comment", "Synced via PiSyncHub"),
+                                "enabled": adlist.get("enabled", True)
+                            }
                         )
-                    sync_results.append(f"Successfully synced adlists to {target['name']}")
+                    sync_results.append(f"Successfully synced {len(lists_data)} adlists to {target['name']}")
                 except Exception as ex:
                     sync_results.append(f"Error pushing to {target['name']}: {str(ex)}")
 
