@@ -7,14 +7,17 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <style>
     :root {
-      --bg: #121212;
-      --card-bg: #1e1e1e;
-      --border: #333333;
+      --bg: #0f111a;
+      --card-bg: #1a1d2d;
+      --border: #2a2e45;
       --accent: #ff6600;
-      --text: #e0e0e0;
-      --muted: #888888;
-      --danger: #e53935;
+      --accent-hover: #e65c00;
+      --text: #ffffff;
+      --muted: #8b92b2;
+      --success: #00e676;
+      --danger: #ff5252;
     }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       background-color: var(--bg);
@@ -25,7 +28,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem 1.5rem;
+      padding: 1rem 2rem;
       background-color: var(--card-bg);
       border-bottom: 1px solid var(--border);
     }
@@ -33,98 +36,110 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      font-weight: 700;
       font-size: 1.25rem;
+      font-weight: 700;
     }
-    .brand img {
-      width: 28px;
-      height: 28px;
-    }
+    .brand img { width: 32px; height: 32px; }
     .user-panel {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1.25rem;
       font-size: 0.9rem;
     }
     button {
       background-color: var(--accent);
       color: #fff;
       border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
       font-weight: 600;
       cursor: pointer;
+      transition: background 0.2s;
     }
+    button:hover { background-color: var(--accent-hover); }
     button.secondary {
-      background-color: transparent;
+      background: transparent;
       border: 1px solid var(--border);
       color: var(--text);
     }
+    button.secondary:hover { background: var(--border); }
+    button.danger { background: var(--danger); }
     main {
-      padding: 1.5rem;
-      max-width: 900px;
-      margin: 0 auto;
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
     }
     .card {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem;
-      margin-bottom: 1.5rem;
+      border-radius: 10px;
+      padding: 1.5rem;
     }
-    .node-item {
+    .card h3 { margin-top: 0; margin-bottom: 1rem; font-size: 1.1rem; }
+    .stat-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 0.6rem;
+      font-size: 0.9rem;
     }
-    .node-item:last-child {
-      border-bottom: none;
+    .stat-value { font-weight: 700; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
     }
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.8);
+    .badge.online { background: rgba(0, 230, 118, 0.15); color: var(--success); }
+    .badge.offline { background: rgba(255, 82, 82, 0.15); color: var(--danger); }
+    .form-group { margin-bottom: 1.2rem; }
+    label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--muted); }
+    input, select {
+      width: 100%;
+      padding: 0.65rem;
+      background: #111322;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #fff;
+    }
+    .checkbox-group {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.2rem;
+      flex-wrap: wrap;
+    }
+    .checkbox-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      z-index: 999;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .checkbox-item input { width: auto; }
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
     }
     .modal {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 2rem;
       width: 100%;
-      max-width: 360px;
+      max-width: 380px;
     }
-    .form-group {
-      margin-bottom: 1rem;
-    }
-    label {
-      display: block;
-      margin-bottom: 0.4rem;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-    input {
-      width: 100%;
-      padding: 0.6rem;
-      background: #141414;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: #fff;
-      box-sizing: border-box;
-    }
-    .error {
-      color: var(--danger);
-      font-size: 0.85rem;
-      margin-bottom: 1rem;
-    }
+    .error { color: var(--danger); font-size: 0.85rem; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
@@ -135,132 +150,153 @@
       <span>PiSyncHub</span>
     </div>
     <div class="user-panel">
-      <span id="nav-user"></span>
+      <span id="nav-user" style="font-weight: 600;"></span>
       <button class="secondary" id="logout-btn" onclick="logout()" style="display:none;">Log Out</button>
     </div>
   </header>
 
-  <main id="app-content">
-    <div class="card">
-      <h3>Configured Pi-hole Nodes</h3>
-      <div id="nodes-list">Loading nodes...</div>
+  <main id="app-view">
+    <!-- Live Node Health & Stats -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="margin: 0;">Live Node Status</h2>
+        <button class="secondary" onclick="loadStats()">↻ Refresh Stats</button>
+      </div>
+      <div id="stats-grid" class="grid">
+        <div class="card"><p style="color:var(--muted);">Loading node stats...</p></div>
+      </div>
     </div>
 
+    <!-- Sync Engine Controls -->
     <div class="card">
-      <h3>Add Pi-hole Node</h3>
-      <div class="form-group">
-        <label>Node Name (e.g., Primary Pi-hole)</label>
-        <input type="text" id="new-node-name" placeholder="Pi-hole 1">
+      <h3>Selective Teleporter & Rules Sync Engine</h3>
+      <div class="grid">
+        <div class="form-group">
+          <label>Source Node (Primary Master)</label>
+          <select id="sync-source"></select>
+        </div>
+        <div class="form-group">
+          <label>Target Nodes</label>
+          <div id="sync-targets"></div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Base URL / IP</label>
-        <input type="text" id="new-node-url" placeholder="http://192.168.1.5">
+      <div class="checkbox-group">
+        <label class="checkbox-item"><input type="checkbox" id="sync-adlists" checked> Adlists / Blocklists</label>
+        <label class="checkbox-item"><input type="checkbox" id="sync-domains" checked> Domains (Whitelist/Blacklist)</label>
       </div>
-      <div class="form-group">
-        <label>API Key / Web Password</label>
-        <input type="password" id="new-node-key">
+      <button onclick="runSync()">🚀 Run Node Sync</button>
+      <div id="sync-log" style="margin-top: 1rem; font-family: monospace; font-size: 0.85rem; color: var(--muted);"></div>
+    </div>
+
+    <!-- Node Configuration Management -->
+    <div class="card">
+      <h3>Manage Configured Nodes</h3>
+      <div id="nodes-table" style="margin-bottom: 1.5rem;"></div>
+
+      <h4>Add Node</h4>
+      <div class="grid">
+        <div class="form-group">
+          <label>Friendly Name</label>
+          <input type="text" id="node-name" placeholder="Pihole1">
+        </div>
+        <div class="form-group">
+          <label>Base URL / IP</label>
+          <input type="text" id="node-url" placeholder="http://192.168.0.2">
+        </div>
+        <div class="form-group">
+          <label>API Key / Web Password</label>
+          <input type="password" id="node-key" placeholder="Enter Pi-hole web password">
+        </div>
       </div>
       <button onclick="addNode()">Add Node</button>
     </div>
   </main>
 
-  <!-- Auth Modal -->
+  <!-- Setup & Login Modal -->
   <div id="auth-modal" class="modal-overlay" style="display:none;">
     <div class="modal">
-      <h2 id="modal-title" style="margin-top:0; color:var(--accent);">Admin Setup</h2>
-      <p id="modal-desc" style="font-size:0.85rem; color:var(--muted);">Set your admin credentials</p>
+      <h2 id="modal-title" style="margin-top:0; color:var(--accent);">PiSyncHub Setup</h2>
+      <p id="modal-desc" style="font-size:0.85rem; color:var(--muted);">Create your admin credentials</p>
       <div id="modal-error" class="error" style="display:none;"></div>
-
       <div class="form-group">
-        <label>Username</label>
+        <label>Admin Username</label>
         <input type="text" id="auth-username" autocomplete="username">
       </div>
       <div class="form-group">
-        <label>Password</label>
+        <label>Admin Password</label>
         <input type="password" id="auth-password" autocomplete="current-password">
       </div>
-      <div class="form-group" id="confirm-pwd-group">
+      <div class="form-group" id="confirm-box">
         <label>Confirm Password</label>
-        <input type="password" id="auth-confirm-password" autocomplete="new-password">
+        <input type="password" id="auth-confirm" autocomplete="new-password">
       </div>
-      <button id="auth-submit-btn" style="width:100%;" onclick="submitAuth()">Submit</button>
+      <button id="modal-submit-btn" style="width: 100%;" onclick="submitAuth()">Complete Setup</button>
     </div>
   </div>
 
   <script>
     let isSetupMode = false;
+    let cachedNodes = [];
 
     async function checkAuth() {
       const res = await fetch('/api/auth/status');
       const data = await res.json();
-
       if (data.setup_required) {
-        showSetupModal();
+        isSetupMode = true;
+        document.getElementById('auth-modal').style.display = 'flex';
+        document.getElementById('modal-title').textContent = 'Initial Admin Setup';
+        document.getElementById('modal-desc').textContent = 'Set your admin username and password';
+        document.getElementById('confirm-box').style.display = 'block';
+        document.getElementById('modal-submit-btn').textContent = 'Complete Setup';
       } else if (!data.logged_in) {
-        showLoginModal();
+        isSetupMode = false;
+        document.getElementById('auth-modal').style.display = 'flex';
+        document.getElementById('modal-title').textContent = 'PiSyncHub Login';
+        document.getElementById('modal-desc').textContent = 'Enter your admin credentials';
+        document.getElementById('confirm-box').style.display = 'none';
+        document.getElementById('modal-submit-btn').textContent = 'Log In';
       } else {
         document.getElementById('auth-modal').style.display = 'none';
         document.getElementById('nav-user').textContent = data.username;
         document.getElementById('logout-btn').style.display = 'inline-block';
-        loadNodes();
+        refreshAll();
       }
-    }
-
-    function showSetupModal() {
-      isSetupMode = true;
-      document.getElementById('auth-modal').style.display = 'flex';
-      document.getElementById('modal-title').textContent = 'Admin Setup';
-      document.getElementById('modal-desc').textContent = 'Create your administrator account';
-      document.getElementById('confirm-pwd-group').style.display = 'block';
-      document.getElementById('auth-submit-btn').textContent = 'Complete Setup';
-    }
-
-    function showLoginModal() {
-      isSetupMode = false;
-      document.getElementById('auth-modal').style.display = 'flex';
-      document.getElementById('modal-title').textContent = 'PiSyncHub Login';
-      document.getElementById('modal-desc').textContent = 'Enter your admin credentials';
-      document.getElementById('confirm-pwd-group').style.display = 'none';
-      document.getElementById('auth-submit-btn').textContent = 'Log In';
     }
 
     async function submitAuth() {
       const username = document.getElementById('auth-username').value.trim();
       const password = document.getElementById('auth-password').value.trim();
-      const errBox = document.getElementById('modal-error');
-      errBox.style.display = 'none';
+      const err = document.getElementById('modal-error');
+      err.style.display = 'none';
 
       if (isSetupMode) {
-        const confirm = document.getElementById('auth-confirm-password').value.trim();
+        const confirm = document.getElementById('auth-confirm').value.trim();
         if (password !== confirm) {
-          errBox.textContent = "Passwords do not match";
-          errBox.style.display = 'block';
+          err.textContent = "Passwords do not match";
+          err.style.display = 'block';
           return;
         }
-        const res = await fetch('/api/auth/setup', {
+        const r = await fetch('/api/auth/setup', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ username, password })
         });
-        const result = await res.json();
-        if (res.ok) {
-          checkAuth();
-        } else {
-          errBox.textContent = result.message;
-          errBox.style.display = 'block';
+        if (r.ok) checkAuth();
+        else {
+          const d = await r.json();
+          err.textContent = d.detail || "Setup failed";
+          err.style.display = 'block';
         }
       } else {
-        const res = await fetch('/api/auth/login', {
+        const r = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ username, password })
         });
-        const result = await res.json();
-        if (res.ok) {
-          checkAuth();
-        } else {
-          errBox.textContent = result.message;
-          errBox.style.display = 'block';
+        if (r.ok) checkAuth();
+        else {
+          err.textContent = "Invalid credentials";
+          err.style.display = 'block';
         }
       }
     }
@@ -270,42 +306,126 @@
       window.location.reload();
     }
 
+    async function refreshAll() {
+      await loadNodes();
+      loadStats();
+    }
+
     async function loadNodes() {
-      const res = await fetch('/api/nodes');
-      if (!res.ok) return;
-      const data = await res.json();
-      const container = document.getElementById('nodes-list');
-      if (!data.nodes || data.nodes.length === 0) {
-        container.innerHTML = '<p style="color:var(--muted);">No nodes configured yet.</p>';
+      const r = await fetch('/api/nodes');
+      if (!r.ok) return;
+      const d = await r.json();
+      cachedNodes = d.nodes || [];
+      
+      // Render table
+      const table = document.getElementById('nodes-table');
+      if (cachedNodes.length === 0) {
+        table.innerHTML = '<p style="color:var(--muted);">No Pi-hole nodes configured yet.</p>';
+      } else {
+        table.innerHTML = cachedNodes.map((n, i) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid var(--border);">
+            <div><strong>${n.name}</strong> &nbsp; <small style="color:var(--muted);">${n.url}</small></div>
+            <button class="secondary danger" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="deleteNode(${i})">Delete</button>
+          </div>
+        `).join('');
+      }
+
+      // Populate sync controls
+      const srcSelect = document.getElementById('sync-source');
+      srcSelect.innerHTML = cachedNodes.map((n, i) => `<option value="${i}">${n.name} (${n.url})</option>`).join('');
+
+      const targetDiv = document.getElementById('sync-targets');
+      targetDiv.innerHTML = cachedNodes.map((n, i) => `
+        <label class="checkbox-item"><input type="checkbox" class="sync-target-box" value="${i}" checked> ${n.name}</label>
+      `).join('');
+    }
+
+    async function addNode() {
+      const name = document.getElementById('node-name').value.trim();
+      const url = document.getElementById('node-url').value.trim();
+      const api_key = document.getElementById('node-key').value.trim();
+      if (!name || !url) return alert("Please provide a name and URL.");
+
+      const r = await fetch('/api/nodes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, url, api_key })
+      });
+      if (r.ok) {
+        document.getElementById('node-name').value = '';
+        document.getElementById('node-url').value = '';
+        document.getElementById('node-key').value = '';
+        refreshAll();
+      }
+    }
+
+    async function deleteNode(idx) {
+      if (!confirm("Are you sure you want to remove this node?")) return;
+      await fetch(`/api/nodes/${idx}`, { method: 'DELETE' });
+      refreshAll();
+    }
+
+    async function loadStats() {
+      const grid = document.getElementById('stats-grid');
+      const r = await fetch('/api/dashboard/stats');
+      if (!r.ok) return;
+      const d = await r.json();
+
+      if (!d.nodes || d.nodes.length === 0) {
+        grid.innerHTML = '<div class="card"><p style="color:var(--muted);">No nodes configured to query.</p></div>';
         return;
       }
-      container.innerHTML = data.nodes.map(n => `
-        <div class="node-item">
-          <div>
-            <strong>${n.name}</strong><br>
-            <small style="color:var(--muted);">${n.url}</small>
+
+      grid.innerHTML = d.nodes.map(n => `
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <strong>${n.name}</strong>
+            <span class="badge ${n.online ? 'online' : 'offline'}">${n.online ? n.status : 'offline'}</span>
+          </div>
+          <div class="stat-row">
+            <span style="color:var(--muted);">Queries Today</span>
+            <span class="stat-value">${n.queries.toLocaleString()}</span>
+          </div>
+          <div class="stat-row">
+            <span style="color:var(--muted);">Blocked Queries</span>
+            <span class="stat-value">${n.blocked.toLocaleString()} (${n.percent_blocked}%)</span>
+          </div>
+          <div class="stat-row">
+            <span style="color:var(--muted);">Gravity Blocklist</span>
+            <span class="stat-value">${n.gravity_size.toLocaleString()} domains</span>
           </div>
         </div>
       `).join('');
     }
 
-    async function addNode() {
-      const name = document.getElementById('new-node-name').value.trim();
-      const url = document.getElementById('new-node-url').value.trim();
-      const api_key = document.getElementById('new-node-key').value.trim();
+    async function runSync() {
+      const src = parseInt(document.getElementById('sync-source').value, 10);
+      const targetBoxes = document.querySelectorAll('.sync-target-box:checked');
+      const targets = Array.from(targetBoxes).map(b => parseInt(b.value, 10)).filter(idx => idx !== src);
+      const log = document.getElementById('sync-log');
 
-      if (!name || !url) return alert('Name and URL are required.');
+      if (targets.length === 0) {
+        log.textContent = "Please select at least one different target node.";
+        return;
+      }
 
-      const res = await fetch('/api/nodes', {
+      log.textContent = "Syncing in progress...";
+      const r = await fetch('/api/sync', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name, url, api_key })
+        body: JSON.stringify({
+          source_index: src,
+          target_indices: targets,
+          sync_adlists: document.getElementById('sync-adlists').checked,
+          sync_domains: document.getElementById('sync-domains').checked
+        })
       });
-      if (res.ok) {
-        document.getElementById('new-node-name').value = '';
-        document.getElementById('new-node-url').value = '';
-        document.getElementById('new-node-key').value = '';
-        loadNodes();
+      const d = await r.json();
+      if (r.ok) {
+        log.innerHTML = d.log.map(l => `<div>• ${l}</div>`).join('') || "Sync complete.";
+        loadStats();
+      } else {
+        log.textContent = d.detail || "Sync failed.";
       }
     }
 
