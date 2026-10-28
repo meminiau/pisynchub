@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/meminiau/pisynchub/issues</Support>
   <Project>https://github.com/meminiau/pisynchub</Project>
-  <Overview>Unified multi-node dashboard and selective Teleporter backup/sync engine for Pi-hole v6. Note: Early build requiring testing.</Overview>
+  <Overview>Unified multi-node dashboard, teleporter vault backup/restore engine, and selective rules synchronization for Pi-hole v6.</Overview>
   <Category>Network:DNS Status:Beta</Category>
   <WebUI>http://[IP]:[PORT:8085]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/meminiau/pisynchub/main/pisynchub.xml</TemplateURL>
@@ -20,7 +20,31 @@
   <DateInstalled/>
   <DonateText/>
   <DonateLink/>
-  <Requires/>
-  <Config Name="WebUI Port" Target="8085" Default="8085" Mode="tcp" Description="Port for the PiSyncHub Web Interface" Type="Port" Display="always" Required="true" Mask="false">8085</Config>
-  <Config Name="Appdata Config" Target="/config" Default="/mnt/user/appdata/pisynchub" Mode="rw" Description="Persistent storage for nodes.json and Teleporter backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/pisynchub</Config>
+  <Description>Unified multi-node dashboard, teleporter vault backup/restore engine, and selective rules synchronization for Pi-hole v6.</Description>
+  <Networking>
+    <Mode>bridge</Mode>
+    <Publish>
+      <Port>
+        <HostPort>8085</HostPort>
+        <ContainerPort>8085</ContainerPort>
+        <Protocol>tcp</Protocol>
+      </Port>
+    </Publish>
+  </Networking>
+  <Data>
+    <Volume>
+      <HostDir>/mnt/user/appdata/pisynchub</HostDir>
+      <ContainerDir>/config</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+  </Data>
+  <Environment>
+    <Variable>
+      <Value>Australia/Sydney</Value>
+      <Name>TZ</Name>
+      <Mode/>
+    </Variable>
+  </Environment>
+  <Config Name="WebUI Port" Target="8085" Default="8085" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">8085</Config>
+  <Config Name="AppData Storage" Target="/config" Default="/mnt/user/appdata/pisynchub" Mode="rw" Description="Persistent storage for nodes.json and Teleporter backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/pisynchub</Config>
 </Container>
